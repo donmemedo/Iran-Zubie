@@ -1,0 +1,58 @@
+name: zubie-iran
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: zubie-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zubie}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zubie_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-zubie}
+    volumes:
+      - zubie-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zubie} -d ${POSTGRES_DB:-zubie}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [zubie]
+
+  backend:
+    build:
+      context: ./backend
+    container_name: zubie-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ZUBIE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-zubie}:${POSTGRES_PASSWORD:-zubie_dev_password}@db:5432/${POSTGRES_DB:-zubie}
+      ZUBIE_SECRET_KEY: ${ZUBIE_SECRET_KEY:-change-me-in-production}
+      ZUBIE_CORS_ORIGINS: ${ZUBIE_CORS_ORIGINS:-http://localhost:3010,http://127.0.0.1:3010}
+      ZUBIE_TELEMETRY_INTERVAL: ${ZUBIE_TELEMETRY_INTERVAL:-2}
+    ports:
+      - "${API_PORT:-8010}:8000"
+    networks: [zubie]
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8010}
+        NEXT_PUBLIC_WS_URL: ${PUBLIC_WS_URL:-ws://localhost:8010}
+    container_name: zubie-web
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-3010}:3010"
+    networks: [zubie]
+
+volumes:
+  zubie-db-data:
+
+networks:
+  zubie:
+    driver: bridge
