@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, EmailStr, Field
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, StringConstraints
 
 
 def _as_utc(value: datetime | str) -> datetime | str:
@@ -18,20 +18,63 @@ class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# Lengths match the DB columns so oversized input is a 422, never a 500 on Postgres.
+Email = Annotated[EmailStr, Field(max_length=180)]
+# Stripped first, so "   " is rejected instead of saved as a blank name.
+Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+
+AlertSeverity = Literal["good", "warning", "serious", "critical"]
+VehicleStatus = Literal["moving", "idle", "parked", "offline", "service"]
+MaintenanceStatus = Literal["upcoming", "due", "overdue", "done"]
+GeofenceKind = Literal["depot", "customer", "restricted", "service"]
+
+# ponytail: tiny denylist of the most common 10+ character passwords; swap for a
+# breached-password (HIBP k-anonymity) check when sign-up volume justifies it.
+COMMON_PASSWORDS = frozenset({
+    "0123456789", "1234567890", "12345678910", "0987654321", "1q2w3e4r5t", "1qaz2wsx3edc",
+    "qwertyuiop", "asdfghjkl;", "password12", "password123", "password1234", "passw0rd123",
+    "qwerty1234", "qwerty12345", "qwerty123456", "iloveyou12", "zubie12345", "admin12345",
+})
+
+
+def _strong_password(value: str) -> str:
+    if len(value.encode()) > 72:  # bcrypt silently ignores everything past 72 bytes
+        raise ValueError("Password must be at most 72 bytes")
+    if value.lower() in COMMON_PASSWORDS or len(set(value)) < 4:
+        raise ValueError("This password is too common")
+    return value
+
+
+# Persian/Arabic digits -> ASCII, and drop the separators people type.
+_PHONE_CHARS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "0123456789" * 2, " -()")
+
+
+def _normalise_phone(value: object) -> object:
+    return value.translate(_PHONE_CHARS) if isinstance(value, str) else value
+
+
+# Iranian mobile/landline (0 + 10 digits) or international (+ or 00, then 8-15 digits).
+Phone = Annotated[
+    str,
+    BeforeValidator(_normalise_phone),
+    Field(max_length=40, pattern=r"^(?:0[0-9]{10}|(?:\+|00)[0-9]{8,15})$"),
+]
+
+
 # ---------------------------------------------------------------- auth
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
+    email: Email
+    password: str = Field(max_length=128)
 
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=6)
-    full_name: str
-    full_name_fa: str = ""
-    company: str = "Zubie Demo Fleet"
+    email: Email
+    password: Annotated[str, Field(min_length=10, max_length=72), AfterValidator(_strong_password)]
+    full_name: Name
+    full_name_fa: str = Field(default="", max_length=120)
+    company: str = Field(default="Zubie Demo Fleet", max_length=120)
 
 
 class OrganizationOut(ORMModel):
@@ -162,12 +205,12 @@ class GeofenceOut(ORMModel):
 
 
 class GeofenceCreate(BaseModel):
-    name: str
-    name_fa: str = ""
-    kind: str = "customer"
-    lat: float
-    lng: float
-    radius_m: int = 500
+    name: Name
+    name_fa: str = Field(default="", max_length=120)
+    kind: GeofenceKind = "customer"
+    lat: float = Field(ge=25, le=40)  # Iran's bounding box
+    lng: float = Field(ge=44, le=64)
+    radius_m: int = Field(default=500, ge=50, le=50_000)
     alert_on_enter: bool = True
     alert_on_exit: bool = True
 
@@ -237,9 +280,9 @@ class TimeSeries(BaseModel):
 
 
 class LeadCreate(BaseModel):
-    company: str
-    contact_name: str
-    phone: str
-    email: str = ""
-    fleet_size: int = 10
-    message: str = ""
+    company: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=140)]
+    contact_name: Name
+    phone: Phone
+    email: Email | Literal[""] = ""
+    fleet_size: int = Field(default=10, ge=1, le=10_000)
+    message: str = Field(default="", max_length=2000)

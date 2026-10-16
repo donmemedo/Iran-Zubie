@@ -169,11 +169,12 @@ async def seed_database(session: AsyncSession) -> None:
     session.add(org)
     await session.flush()
 
+    demo_hash = hash_password("zubie1234")  # one bcrypt round at boot instead of two
     session.add_all(
         [
             User(
                 email="demo@zubie.ir",
-                hashed_password=hash_password("zubie1234"),
+                hashed_password=demo_hash,
                 full_name="Mohammad Khataei",
                 full_name_fa="محمد خطایی",
                 role="admin",
@@ -183,7 +184,7 @@ async def seed_database(session: AsyncSession) -> None:
             ),
             User(
                 email="manager@zubie.ir",
-                hashed_password=hash_password("zubie1234"),
+                hashed_password=demo_hash,
                 full_name="Leila Ebrahimi",
                 full_name_fa="لیلا ابراهیمی",
                 role="manager",
