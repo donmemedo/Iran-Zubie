@@ -1,23 +1,40 @@
 name: zubie-iran
 
+# services:
+#   db:
+#     image: postgres:18.6-alpine
+#     container_name: zubie-db
+#     restart: unless-stopped
+#     environment:
+#       POSTGRES_USER: ${POSTGRES_USER:-zubie}
+#       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zubie_dev_password}
+#       POSTGRES_DB: ${POSTGRES_DB:-zubie}
+#     volumes:
+#       - zubie-db-data:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zubie} -d ${POSTGRES_DB:-zubie}"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 10
+#     networks: [zubie]
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18.6-alpine
     container_name: zubie-db
-    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-zubie}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zubie_dev_password}
       POSTGRES_DB: ${POSTGRES_DB:-zubie}
+      PGDATA: /var/lib/postgresql/pgdata
     volumes:
-      - zubie-db-data:/var/lib/postgresql/data
+      - zubie-db-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zubie} -d ${POSTGRES_DB:-zubie}"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 10
     networks: [zubie]
-
+    restart: unless-stopped
   backend:
     build:
       context: ./backend
