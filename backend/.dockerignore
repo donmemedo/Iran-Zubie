@@ -4,3 +4,8 @@ __pycache__/
 venv/
 *.db
 .env
+.env.*
+tests/
+scripts/
+.pytest_cache/
+.git

@@ -8,6 +8,13 @@ export const en: Dictionary = {
       "Zubie Iran puts every company vehicle online: live tracking, engine-health alerts and driver scoring in one dashboard.",
   },
   common: {
+    emptyFleetTitle: "Your fleet is empty",
+    emptyFleetLead: "Live data appears here once you add vehicles and trackers.",
+    skipToContent: "Skip to main content",
+    forbidden: "You don't have permission to do this.",
+    actionFailed: "That didn't work. Please try again.",
+    viewOnly: "Your account is view-only.",
+    loadError: "We couldn't load this data.",
     brand: "Zubie Iran",
     brandShort: "Zubie",
     tagline: "Your vehicles, connected and accountable",
@@ -180,6 +187,9 @@ export const en: Dictionary = {
     footerBlog: "Blog",
   },
   auth: {
+    emailTaken: "This email is already registered.",
+    passwordHint: "At least 10 characters, and not a common password.",
+    rateLimited: "Too many attempts. Please try again in a few minutes.",
     loginTitle: "Log in to the dashboard",
     loginLead: "Sign in with your company account.",
     registerTitle: "Create an account",
@@ -203,6 +213,11 @@ export const en: Dictionary = {
     marketingBody: "The Zubie dashboard puts three layers side by side: position, technical health and driver behaviour.",
   },
   dash: {
+    navLabel: "Main navigation",
+    openMenu: "Open menu",
+    deltaUp: "Increase",
+    deltaDown: "Decrease",
+    deltaFlat: "No change",
     overview: "Overview",
     liveMap: "Live map",
     vehicles: "Vehicles",
@@ -310,6 +325,7 @@ export const en: Dictionary = {
     phone: "Mobile number",
   },
   alerts: {
+    emptyDone: "No handled alerts yet.",
     title: "Alerts",
     lead: "Engine health, geofence and driver-behaviour warnings",
     open: "Open",
@@ -356,6 +372,7 @@ export const en: Dictionary = {
     summaryCost: "Open cost",
   },
   geofences: {
+    deleteTitle: "Delete this geofence?",
     title: "Geofences",
     lead: "Zones for depots, customer sites and restricted areas",
     name: "Zone name",

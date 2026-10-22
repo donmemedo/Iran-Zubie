@@ -1,0 +1,8 @@
+# Extends the default ruleset. Only the documented demo credentials and placeholders are allowed.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented demo account and empty templates"
+regexes = ['''zubie1234''', '''Str0ng-and-long-1''', '''Pr0be-Str0ng-pass''']
+paths = ['''\.env\.example$''', '''backend/tests/.*''', '''backend/scripts/pentest_probe\.py''', '''docs/.*''']

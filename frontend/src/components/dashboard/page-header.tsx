@@ -12,8 +12,8 @@ export function PageHeader({
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="text-[22px] font-bold tracking-tight text-ink sm:text-[26px]">{title}</h1>
-        {lead && <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-muted">{lead}</p>}
+        <h1 className="text-[22px] font-bold leading-display tracking-display text-ink sm:text-[26px]">{title}</h1>
+        {lead && <p className="mt-1.5 text-pretty text-[13.5px] leading-relaxed text-ink-muted">{lead}</p>}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>

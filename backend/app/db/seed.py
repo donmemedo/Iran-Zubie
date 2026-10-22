@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import math
 import random
-from datetime import date, datetime, time as clock_time, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
+from datetime import time as clock_time
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -157,7 +158,7 @@ async def seed_database(session: AsyncSession) -> None:
     if existing is not None:
         return
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     org = Organization(
         name="Pakhsh-e Sepehr Logistics",
@@ -169,11 +170,12 @@ async def seed_database(session: AsyncSession) -> None:
     session.add(org)
     await session.flush()
 
+    demo_hash = hash_password("zubie1234")  # one bcrypt round at boot instead of two
     session.add_all(
         [
             User(
                 email="demo@zubie.ir",
-                hashed_password=hash_password("zubie1234"),
+                hashed_password=demo_hash,
                 full_name="Mohammad Khataei",
                 full_name_fa="محمد خطایی",
                 role="admin",
@@ -183,7 +185,7 @@ async def seed_database(session: AsyncSession) -> None:
             ),
             User(
                 email="manager@zubie.ir",
-                hashed_password=hash_password("zubie1234"),
+                hashed_password=demo_hash,
                 full_name="Leila Ebrahimi",
                 full_name_fa="لیلا ابراهیمی",
                 role="manager",
@@ -201,7 +203,7 @@ async def seed_database(session: AsyncSession) -> None:
     # rather than hoping random counters land on a good curve.
     targets = [96.4, 94.1, 91.3, 89.6, 88.2, 86.5, 84.9, 83.1, 81.4,
                79.8, 78.2, 76.6, 75.1, 73.4, 71.8, 69.2, 66.4, 61.7]
-    for (fa_name, en_name), target in zip(DRIVER_NAMES, targets):
+    for (fa_name, en_name), target in zip(DRIVER_NAMES, targets, strict=True):
         budget = 100.0 - target
         harsh_brake = max(0, round(budget * RNG.uniform(0.18, 0.30) / 0.7))
         harsh_accel = max(0, round(budget * RNG.uniform(0.12, 0.24) / 0.55))
@@ -292,7 +294,7 @@ async def seed_database(session: AsyncSession) -> None:
                 started = datetime.combine(
                     target_day,
                     clock_time(hour=RNG.randint(6, 19), minute=RNG.randint(0, 59)),
-                    tzinfo=timezone.utc,
+                    tzinfo=UTC,
                 )
             distance = round(duration * RNG.uniform(0.32, 0.78), 1)
             avg_speed = round(distance / (duration / 60), 1)

@@ -9,8 +9,8 @@ type Variant = "primary" | "secondary" | "ghost" | "danger" | "glass";
 type Size = "sm" | "md" | "lg";
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 " +
-  "active:scale-[0.975] disabled:pointer-events-none disabled:opacity-50 select-none whitespace-nowrap";
+  "press touch-target inline-flex items-center justify-center gap-2 rounded-xl font-medium " +
+  "disabled:pointer-events-none disabled:opacity-50 select-none whitespace-nowrap";
 
 const variants: Record<Variant, string> = {
   primary:

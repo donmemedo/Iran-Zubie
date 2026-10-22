@@ -34,3 +34,10 @@ export const navItems: NavItem[] = [
   { path: "/app/reports", icon: FileBarChart, label: (t) => t.dash.reports },
   { path: "/app/settings", icon: Settings, label: (t) => t.dash.settings },
 ];
+
+/** Overview matches exactly; every other section also owns its sub-routes. */
+export function isActive(item: NavItem, current: string): boolean {
+  return item.path === "/app"
+    ? current === "/app"
+    : current === item.path || current.startsWith(`${item.path}/`);
+}

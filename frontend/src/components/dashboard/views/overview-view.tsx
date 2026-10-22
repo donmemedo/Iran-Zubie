@@ -20,7 +20,8 @@ import { LineChart } from "@/components/charts/line-chart";
 import { PageBody, PageHeader } from "@/components/dashboard/page-header";
 import { StatTile } from "@/components/dashboard/stat-tile";
 import { Card, CardHeader } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty";
+import { EmptyFleet } from "@/components/dashboard/views/shared";
+import { EmptyState, ErrorState } from "@/components/ui/empty";
 import { SeverityPill } from "@/components/ui/pill";
 import { SkeletonCard, Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
@@ -82,6 +83,9 @@ export function OverviewView() {
   return (
     <PageBody>
       <PageHeader title={t.dash.overview} lead={t.dash.statusTitle} />
+
+      {!overview.data && overview.error && <ErrorState compact onRetry={overview.reload} />}
+      {overview.data?.total_vehicles === 0 && <EmptyFleet />}
 
       {/* KPI row */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

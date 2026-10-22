@@ -1,8 +1,11 @@
 """Unauthenticated endpoints that back the marketing site."""
 
-from fastapi import APIRouter, Depends, status
+import json
+
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.ratelimit import rate_limit
 from app.db.session import get_session
 from app.models import Lead
 from app.schemas import LeadCreate
@@ -85,12 +88,22 @@ PLANS = [
 ]
 
 
+# Static, so serialise once at import and let browsers and proxies cache it.
+_PLANS_JSON = json.dumps(PLANS, ensure_ascii=False, separators=(",", ":")).encode()
+
+
 @router.get("/plans")
-async def plans() -> list[dict]:
-    return PLANS
+async def plans() -> Response:
+    return Response(
+        _PLANS_JSON, media_type="application/json", headers={"Cache-Control": "public, max-age=3600"}
+    )
 
 
-@router.post("/leads", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/leads",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit("leads", limit=5, window_seconds=3600))],
+)
 async def create_lead(payload: LeadCreate, session: AsyncSession = Depends(get_session)) -> dict:
     lead = Lead(**payload.model_dump())
     session.add(lead)

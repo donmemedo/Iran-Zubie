@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, utcnow
@@ -33,7 +33,7 @@ class User(Base, TimestampMixin):
     role: Mapped[str] = mapped_column(String(20), default="manager")  # admin | manager | viewer
     locale: Mapped[str] = mapped_column(String(5), default="fa")
     phone: Mapped[str] = mapped_column(String(30), default="")
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), index=True)
 
     organization: Mapped[Organization] = relationship(back_populates="users")
 
@@ -42,7 +42,7 @@ class Driver(Base, TimestampMixin):
     __tablename__ = "drivers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), index=True)
     full_name: Mapped[str] = mapped_column(String(120))
     full_name_fa: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str] = mapped_column(String(30), default="")
@@ -64,7 +64,7 @@ class Vehicle(Base, TimestampMixin):
     __tablename__ = "vehicles"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), index=True)
     driver_id: Mapped[int | None] = mapped_column(ForeignKey("drivers.id"), nullable=True)
 
     plate: Mapped[str] = mapped_column(String(30))          # e.g. "۲۲ ایران ۳۴۵ ب ۱۲"
@@ -98,6 +98,8 @@ class Vehicle(Base, TimestampMixin):
 
 class Trip(Base, TimestampMixin):
     __tablename__ = "trips"
+    # Leads with organization_id, so it also serves org-only lookups (no separate index).
+    __table_args__ = (Index("ix_trips_org_started", "organization_id", "started_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))
@@ -122,6 +124,7 @@ class Trip(Base, TimestampMixin):
 
 class Alert(Base, TimestampMixin):
     __tablename__ = "alerts"
+    __table_args__ = (Index("ix_alerts_org_occurred", "organization_id", "occurred_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))
@@ -142,7 +145,7 @@ class Geofence(Base, TimestampMixin):
     __tablename__ = "geofences"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), index=True)
     name: Mapped[str] = mapped_column(String(120))
     name_fa: Mapped[str] = mapped_column(String(120))
     kind: Mapped[str] = mapped_column(String(20), default="depot")  # depot|customer|restricted|service
@@ -156,6 +159,7 @@ class Geofence(Base, TimestampMixin):
 
 class MaintenanceTask(Base, TimestampMixin):
     __tablename__ = "maintenance_tasks"
+    __table_args__ = (Index("ix_maintenance_org_due", "organization_id", "due_date"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))
@@ -171,6 +175,7 @@ class MaintenanceTask(Base, TimestampMixin):
 
 class DiagnosticCode(Base, TimestampMixin):
     __tablename__ = "diagnostic_codes"
+    __table_args__ = (Index("ix_diagnostics_vehicle_detected", "vehicle_id", "detected_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.id"))

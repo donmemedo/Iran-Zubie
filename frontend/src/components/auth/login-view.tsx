@@ -16,6 +16,9 @@ import { clsx } from "@/lib/format";
 import { useLocale } from "@/lib/locale-context";
 
 const DEMO = { email: "demo@zubie.ir", password: "zubie1234" };
+// The demo account and its password are only offered while developing; a production
+// build starts with empty fields and never prints credentials on the page.
+const SHOW_DEMO = process.env.NODE_ENV === "development";
 
 const inputClass =
   "w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3.5 py-3 text-[14px] " +
@@ -27,8 +30,8 @@ export function LoginView() {
   const router = useRouter();
 
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState(DEMO.email);
-  const [password, setPassword] = useState(DEMO.password);
+  const [email, setEmail] = useState(SHOW_DEMO ? DEMO.email : "");
+  const [password, setPassword] = useState(SHOW_DEMO ? DEMO.password : "");
   const [fullName, setFullName] = useState("");
   const [company, setCompany] = useState("");
   const [reveal, setReveal] = useState(false);
@@ -51,8 +54,18 @@ export function LoginView() {
       }
       router.replace(href("/app"));
     } catch (cause) {
+      const status = cause instanceof ApiError ? cause.status : 0;
+      // Localised messages only: the server's English detail text is never shown.
       setError(
-        cause instanceof ApiError && cause.status === 401 ? t.auth.wrongPassword : (cause as Error).message,
+        status === 401
+          ? t.auth.wrongPassword
+          : status === 429
+            ? t.auth.rateLimited
+            : status === 409
+              ? t.auth.emailTaken
+              : status === 422
+                ? t.auth.passwordHint
+                : t.common.actionFailed,
       );
     } finally {
       setBusy(false);
@@ -150,6 +163,9 @@ export function LoginView() {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     className={clsx(inputClass, "pe-11")}
+                    minLength={mode === "register" ? 10 : undefined}
+                    maxLength={72}
+                    aria-describedby={mode === "register" ? "password-hint" : undefined}
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
                   />
                   <button
@@ -157,14 +173,20 @@ export function LoginView() {
                     onClick={() => setReveal((value) => !value)}
                     className="absolute inset-y-0 end-0 flex w-11 items-center justify-center text-ink-muted hover:text-ink"
                     aria-label={t.auth.password}
+                    aria-pressed={reveal}
                   >
                     {reveal ? <EyeOff className="size-[18px]" /> : <Eye className="size-[18px]" />}
                   </button>
                 </div>
+                {mode === "register" && (
+                  <span id="password-hint" className="mt-1.5 block text-[12px] text-ink-muted">
+                    {t.auth.passwordHint}
+                  </span>
+                )}
               </label>
 
               {error && (
-                <p className="rounded-xl bg-[var(--critical-soft)] px-3.5 py-2.5 text-[13px] text-[var(--critical-text)]">
+                <p role="alert" className="rounded-xl bg-[var(--critical-soft)] px-3.5 py-2.5 text-[13px] text-[var(--critical-text)]">
                   {error}
                 </p>
               )}
@@ -175,6 +197,7 @@ export function LoginView() {
               </Button>
             </form>
 
+            {SHOW_DEMO && (
             <div className="mt-5 rounded-2xl border border-dashed border-[var(--line-strong)] bg-[var(--surface)] p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -198,6 +221,7 @@ export function LoginView() {
                 {DEMO.email} · {DEMO.password}
               </p>
             </div>
+            )}
 
             <p className="mt-6 text-center text-[13px] text-ink-muted">
               {mode === "login" ? t.auth.noAccount : t.auth.hasAccount}{" "}

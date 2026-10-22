@@ -7,6 +7,7 @@ import { LineChart } from "@/components/charts/line-chart";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { PageBody, PageHeader } from "@/components/dashboard/page-header";
 import { StatTile } from "@/components/dashboard/stat-tile";
+import { csvRow } from "@/components/dashboard/views/csv";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Chip } from "@/components/ui/pill";
@@ -59,17 +60,18 @@ export function ReportsView() {
 
   const exportCsv = () => {
     const header = ["date", "distance_km", "fuel_l", "trips", "idle_hours", "avg_score"];
+    // csvRow neutralises spreadsheet formulas (a cell starting with = + - @ is run as code by Excel).
     const body = points.map((point) =>
-      [
+      csvRow([
         point.label,
         point.values.distance_km ?? 0,
         point.values.fuel_l ?? 0,
         point.values.trips ?? 0,
         point.values.idle_hours ?? 0,
         point.values.score ?? 0,
-      ].join(","),
+      ]),
     );
-    const blob = new Blob([[header.join(","), ...body].join("\n")], {
+    const blob = new Blob([[csvRow(header), ...body].join("\n")], {
       type: "text/csv;charset=utf-8",
     });
     const url = URL.createObjectURL(blob);

@@ -45,7 +45,7 @@ export function Logo({
   return (
     <span className={clsx("flex items-center gap-2.5", className)}>
       <ZubieMark size={compact ? 28 : 32} />
-      {!compact && <span className="text-[17px] font-semibold tracking-tight">{label}</span>}
+      {!compact && <span className="text-[17px] font-semibold tracking-title">{label}</span>}
     </span>
   );
 }

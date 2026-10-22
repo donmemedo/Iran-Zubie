@@ -22,6 +22,7 @@ export const WS_URL =
   process.env.NEXT_PUBLIC_WS_URL?.replace(/\/$/, "") || API_URL.replace(/^http/, "ws");
 
 const TOKEN_KEY = "zubie.token";
+export const UNAUTHORIZED_EVENT = "zubie:unauthorized";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -59,6 +60,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}/api${path}`, { ...init, headers, cache: "no-store" });
 
   if (!response.ok) {
+    // A rejected token ends the session everywhere. Login and register answer 401/409 for
+    // ordinary reasons, so they are excluded.
+    if (response.status === 401 && token && !path.startsWith("/auth/login") && !path.startsWith("/auth/register")) {
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    }
     let detail = response.statusText;
     try {
       const body = await response.json();
@@ -83,6 +89,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  logout: () => request<void>("/auth/logout", { method: "POST" }),
   me: () => request<User>("/auth/me"),
 
   overview: () => request<FleetOverview>("/analytics/overview"),

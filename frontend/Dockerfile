@@ -27,7 +27,11 @@ ENV NODE_ENV=production \
     PORT=3010 \
     HOSTNAME=0.0.0.0
 
-RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+# The standalone server needs only `node`. Dropping npm, corepack and yarn removes their bundled
+# dependencies from the image, which is where scanners find most of the base image's HIGH findings.
+RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+           /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-* \
+ && addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

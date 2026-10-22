@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { PageBody, PageHeader } from "@/components/dashboard/page-header";
 import { Card } from "@/components/ui/card";
+import { EmptyFleet } from "@/components/dashboard/views/shared";
 import { EmptyState } from "@/components/ui/empty";
 import { Chip, StatusPill } from "@/components/ui/pill";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -179,7 +180,7 @@ export function VehiclesView() {
             columns={columns}
             rows={rows}
             onRowClick={(vehicle) => router.push(href(`/app/vehicles/${vehicle.id}`))}
-            empty={<EmptyState icon={<Car className="size-5" />} title={t.common.none} />}
+            empty={data && data.length === 0 ? <EmptyFleet /> : <EmptyState icon={<Car className="size-5" />} title={t.common.none} />}
           />
         )}
       </Card>

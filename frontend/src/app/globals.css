@@ -23,7 +23,7 @@
   /* ink */
   --ink: #0b0b0b;
   --ink-secondary: #52514e;
-  --ink-muted: #898781;
+  --ink-muted: #6e6c66;
   --ink-inverted: #fcfcfb;
 
   /* lines */
@@ -258,6 +258,13 @@
   --font-sans: var(--font-latin), var(--font-persian), system-ui, sans-serif;
   --font-persian: var(--font-persian), var(--font-latin), system-ui, sans-serif;
 
+  /* size-specific tracking: tight on display sizes, near zero on body */
+  --tracking-display: -0.035em;
+  --tracking-title: -0.02em;
+  --tracking-body: -0.006em;
+  --leading-display: 1.1;
+  --leading-title: 1.25;
+
   --radius-card: 1.25rem;
   --radius-panel: 1.75rem;
 
@@ -309,7 +316,29 @@ body {
 
 html[lang="fa"] body {
   font-family: var(--font-persian), system-ui, sans-serif;
+}
+
+/* Cursive script must never be tracked: negative or positive spacing breaks
+   the letter joins, so every size-specific tracking utility is neutralised. */
+html[lang="fa"] * {
   letter-spacing: 0;
+}
+html[lang="fa"] .leading-display {
+  line-height: 1.35;
+}
+
+a, button, [role="button"], [role="option"], input, select, textarea, label {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS Safari zooms the page on focus when a field is under 16px. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"], [type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 /* Persian copy reads better a touch looser and larger at the same nominal size */
@@ -329,7 +358,6 @@ html[lang="fa"] li {
 :focus-visible {
   outline: 2px solid var(--brand-bright);
   outline-offset: 2px;
-  border-radius: 6px;
 }
 
 /* Numbers in tables and axes must line up; body prose should not be tabular. */
@@ -344,6 +372,54 @@ html[lang="fa"] li {
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border: 1px solid var(--glass-line);
+}
+
+/* Floating chrome: translucent plane with a soft scroll-edge fade instead of a
+   hard divider. The fade is drawn on a pseudo-element so layout is untouched. */
+.chrome {
+  background: color-mix(in srgb, var(--chrome-tint, var(--plane)) 72%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+.edge-top::after,
+.edge-bottom::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  height: 18px;
+  pointer-events: none;
+}
+.edge-top::after {
+  top: 100%;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--plane) 55%, transparent), transparent);
+}
+.edge-bottom::before {
+  bottom: 100%;
+  background: linear-gradient(to top, color-mix(in srgb, var(--plane) 55%, transparent), transparent);
+}
+
+.scrim {
+  background: rgb(0 0 0 / 0.4);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+/* Press feedback: scale on pointer-down, ~100 ms, released instantly back. */
+@utility press {
+  transition-property: scale, translate, color, background-color, border-color, box-shadow, opacity;
+  transition-duration: 100ms;
+  transition-timing-function: ease-out;
+  &:active:not(:disabled, [aria-disabled="true"]) {
+    scale: 0.97;
+  }
+}
+
+/* 44 px minimum hit area on touch screens; desktop density is unchanged. */
+@utility touch-target {
+  @media (pointer: coarse) {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 .card {
@@ -437,5 +513,63 @@ html[lang="fa"] li {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Reduced motion also drops the press scale; opacity still acknowledges it. */
+@media (prefers-reduced-motion: reduce) {
+  .press:active:not(:disabled, [aria-disabled="true"]) {
+    scale: 1;
+    opacity: 0.8;
+  }
+}
+
+/* Reduced transparency: solid surfaces, no blur anywhere. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .chrome {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .scrim {
+    background: rgb(0 0 0 / 0.6);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .leaflet-control-attribution {
+    backdrop-filter: none;
+  }
+}
+
+/* Increased contrast: solid backgrounds, visible borders, no soft fades. */
+@media (prefers-contrast: more) {
+  :root:root {
+    --line: color-mix(in srgb, var(--ink) 55%, var(--surface));
+    --line-strong: var(--ink-secondary);
+    --glass: var(--surface);
+    --glass-line: var(--ink-secondary);
+    --ink-muted: var(--ink-secondary);
+  }
+  .glass,
+  .chrome {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .scrim {
+    background: rgb(0 0 0 / 0.7);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .edge-top::after,
+  .edge-bottom::before {
+    display: none;
+  }
+  .edge-top {
+    box-shadow: 0 1px 0 var(--line-strong);
+  }
+  .edge-bottom {
+    box-shadow: 0 -1px 0 var(--line-strong);
   }
 }

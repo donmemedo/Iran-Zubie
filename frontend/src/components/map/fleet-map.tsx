@@ -33,8 +33,23 @@ const FENCE_TOKENS: Record<Geofence["kind"], string> = {
  * Vehicle markers are div icons rather than images so they inherit the theme
  * tokens and can be rotated to the reported heading.
  */
-function vehicleIcon(status: VehicleStatus, heading: number, selected: boolean) {
-  const color = STATUS_COLOR[status];
+// ponytail: headings are bucketed to 10 degrees so icons can be cached. At most
+// 5 statuses x 36 buckets x 2 = 360 icons ever exist, and an unchanged icon object
+// lets react-leaflet skip the DOM rebuild on every 2-second frame.
+const ICON_CACHE = new Map<string, L.DivIcon>();
+
+function vehicleIcon(status: VehicleStatus, rawHeading: number, selected: boolean) {
+  const heading = (Math.round((Number.isFinite(rawHeading) ? rawHeading : 0) / 10) * 10 + 360) % 360;
+  const key = `${status}|${heading}|${selected}`;
+  const cached = ICON_CACHE.get(key);
+  if (cached) return cached;
+  const icon = buildVehicleIcon(status, heading, selected);
+  ICON_CACHE.set(key, icon);
+  return icon;
+}
+
+function buildVehicleIcon(status: VehicleStatus, heading: number, selected: boolean) {
+  const color = STATUS_COLOR[status] ?? STATUS_COLOR.offline;
   const pulse =
     status === "moving"
       ? `<span style="position:absolute;inset:0;border-radius:999px;background:${color};opacity:.35;animation:pulse-ring 2.2s cubic-bezier(0.25,1,0.5,1) infinite"></span>`

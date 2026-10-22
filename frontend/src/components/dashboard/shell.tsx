@@ -1,17 +1,20 @@
 "use client";
 
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { LogOut, Menu, Radio, Search, X } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { CommandPalette } from "@/components/dashboard/command-palette";
-import { navItems } from "@/components/dashboard/nav";
+import { isActive, navItems } from "@/components/dashboard/nav";
 import { Logo } from "@/components/ui/logo";
+import { fade, spring } from "@/components/ui/motion";
 import { LocaleToggle, ThemeToggle } from "@/components/ui/toggles";
+import { useFocusTrap } from "@/components/ui/use-focus-trap";
 import { useAuth } from "@/lib/auth";
 import { clsx } from "@/lib/format";
-import { useTelemetry } from "@/lib/hooks";
+import { useTelemetryStatus } from "@/lib/hooks";
 import { useLocale } from "@/lib/locale-context";
 
 function initials(name: string): string {
@@ -24,23 +27,34 @@ function initials(name: string): string {
 }
 
 export function DashboardShell({ children }: { children: ReactNode }) {
-  const { t, locale, href } = useLocale();
+  const { t, locale, dir, href } = useLocale();
   const { user, logout } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
-  const { connected } = useTelemetry(true);
+  // Only the connection flag: the full telemetry context ticks every couple of
+  // seconds and would re-render the whole chrome with it.
+  const { connected } = useTelemetryStatus();
+  const reduce = useReducedMotion();
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);
+  const paletteTrigger = useRef<HTMLButtonElement>(null);
+  const drawerRef = useFocusTrap<HTMLElement>(drawer, () => setDrawer(false));
 
-  const strip = (path: string) => path.replace(/^\/(fa|en)/, "") || "/";
-  const current = strip(pathname);
+  const current = pathname.replace(/^\/(fa|en)/, "") || "/";
 
   useEffect(() => setDrawer(false), [pathname]);
+
+  useEffect(() => {
+    document.body.style.overflow = drawer ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [drawer]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
+        setDrawer(false);
         setPalette(true);
       }
     };
@@ -59,38 +73,47 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const displayName = locale === "fa" ? user?.full_name_fa || user?.full_name : user?.full_name;
   const orgName = locale === "fa" ? user?.organization.name_fa : user?.organization.name;
 
+  // The drawer leaves from the start edge: left in LTR, right in RTL.
+  const offscreen = reduce ? "0%" : dir === "rtl" ? "100%" : "-100%";
+  const hidden = { x: offscreen, opacity: reduce ? 0 : 1 };
+
   const sidebar = (
     <div className="flex h-full flex-col">
       <div className="flex h-16 items-center justify-between px-5">
-        <Link href={href("/app")}>
+        <Link href={href("/app")} className="press">
           <Logo label={t.common.brand} />
         </Link>
         <button
           type="button"
           onClick={() => setDrawer(false)}
-          className="text-ink-muted hover:text-ink lg:hidden"
+          className="press inline-flex size-11 items-center justify-center rounded-xl text-ink-muted hover:text-ink lg:hidden"
           aria-label={t.common.close}
         >
           <X className="size-5" />
         </button>
       </div>
 
-      <nav className="scroll-thin flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
+      <nav aria-label={t.dash.navLabel} className="scroll-thin flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
         {navItems.map((item) => {
-          const active = item.path === "/app" ? current === "/app" : current.startsWith(item.path);
+          const active = isActive(item, current);
           return (
             <Link
               key={item.path}
               href={href(item.path)}
+              aria-current={active ? "page" : undefined}
+              data-autofocus={active || undefined}
               className={clsx(
-                "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] transition-colors",
+                "press touch-target group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px]",
                 active
                   ? "bg-[var(--brand-soft)] font-medium text-[var(--brand)]"
                   : "text-ink-secondary hover:bg-[var(--surface-sunken)] hover:text-ink",
               )}
             >
               {active && (
-                <span className="absolute inset-y-2 start-0 w-[3px] rounded-full bg-[var(--brand)]" />
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-y-2 start-0 w-[3px] rounded-full bg-[var(--brand)]"
+                />
               )}
               <item.icon className="size-[18px] shrink-0" />
               {item.label(t)}
@@ -101,7 +124,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
       <div className="border-t border-[var(--line)] p-3">
         <div className="flex items-center gap-3 rounded-xl px-2 py-2">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-[13px] font-semibold text-[var(--brand-ink)]">
+          <span
+            aria-hidden="true"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-[13px] font-semibold text-[var(--brand-ink)]"
+          >
             {initials(displayName ?? "?")}
           </span>
           <div className="min-w-0 flex-1">
@@ -111,7 +137,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={logout}
-            className="text-ink-muted transition-colors hover:text-[var(--critical)]"
+            className="press inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-ink-muted hover:text-[var(--critical-text)]"
             aria-label={t.dash.logout}
             title={t.dash.logout}
           >
@@ -124,33 +150,59 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh bg-[var(--plane)]">
+      <a
+        href="#main"
+        className="fixed start-3 top-3 z-[80] -translate-y-20 rounded-xl bg-[var(--brand)] px-4 py-2.5 text-[13px] font-medium text-[var(--brand-ink)] focus:translate-y-0"
+      >
+        {t.common.skipToContent}
+      </a>
+
       {/* desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 border-e border-[var(--line)] bg-[var(--surface)] lg:block">
+      <aside className="chrome sticky top-0 hidden h-dvh w-64 shrink-0 border-e border-[var(--glass-line)] [--chrome-tint:var(--surface)] lg:block">
         {sidebar}
       </aside>
 
-      {/* mobile drawer */}
-      {drawer && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/45 backdrop-blur-sm"
-            onClick={() => setDrawer(false)}
-            aria-hidden="true"
-          />
-          <aside className="absolute inset-y-0 start-0 w-[min(288px,84vw)] border-e border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-pop)]">
-            {sidebar}
-          </aside>
-        </div>
-      )}
+      {/* mobile drawer: springs in from the start edge, leaves the same way */}
+      <AnimatePresence>
+        {drawer && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <motion.div
+              className="scrim absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={fade}
+              onClick={() => setDrawer(false)}
+              aria-hidden="true"
+            />
+            <motion.aside
+              ref={drawerRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label={t.dash.navLabel}
+              tabIndex={-1}
+              initial={hidden}
+              animate={{ x: "0%", opacity: 1 }}
+              exit={hidden}
+              transition={reduce ? fade : spring}
+              className="chrome absolute inset-y-0 start-0 w-[min(288px,84vw)] border-e border-[var(--glass-line)] shadow-[var(--shadow-pop)] [--chrome-tint:var(--surface)]"
+            >
+              {sidebar}
+            </motion.aside>
+          </div>
+        )}
+      </AnimatePresence>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 border-b border-[var(--glass-line)] glass">
+        <header className="chrome edge-top sticky top-0 z-40">
           <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
             <button
               type="button"
               onClick={() => setDrawer(true)}
-              className="inline-flex size-10 items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-ink lg:hidden"
-              aria-label={t.dash.overview}
+              className="press inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-ink lg:hidden"
+              aria-label={t.dash.openMenu}
+              aria-haspopup="dialog"
+              aria-expanded={drawer}
             >
               <Menu className="size-[18px]" />
             </button>
@@ -166,9 +218,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </div>
 
             <button
+              ref={paletteTrigger}
               type="button"
               onClick={() => setPalette(true)}
-              className="ms-auto flex h-10 max-w-[320px] flex-1 items-center gap-2.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3.5 text-[13px] text-ink-muted transition-colors hover:border-[var(--line-strong)] sm:flex-none sm:w-[280px]"
+              aria-haspopup="dialog"
+              aria-keyshortcuts="Control+K Meta+K"
+              className="press ms-auto flex h-11 max-w-[320px] flex-1 items-center gap-2.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3.5 text-[13px] text-ink-muted hover:border-[var(--line-strong)] sm:w-[280px] sm:flex-none"
             >
               <Search className="size-4 shrink-0" />
               <span className="truncate">{t.dash.commandHint}</span>
@@ -177,16 +232,20 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               </kbd>
             </button>
 
-            <span
-              className={clsx(
-                "hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium sm:inline-flex",
-                connected
-                  ? "bg-[var(--good-soft)] text-[var(--good-text)]"
-                  : "bg-[var(--warning-soft)] text-ink",
-              )}
-            >
-              <Radio className="size-3" />
-              {connected ? t.dash.connected : t.dash.reconnecting}
+            {/* Live region: always mounted so connection changes are announced; the
+                label is visually hidden on phones where the header is tight. */}
+            <span role="status" aria-live="polite" className="sr-only sm:not-sr-only">
+              <span
+                className={clsx(
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium",
+                  connected
+                    ? "bg-[var(--good-soft)] text-[var(--good-text)]"
+                    : "bg-[var(--warning-soft)] text-ink",
+                )}
+              >
+                <Radio aria-hidden="true" className="size-3" />
+                {connected ? t.dash.connected : t.dash.reconnecting}
+              </span>
             </span>
 
             <LocaleToggle />
@@ -194,35 +253,40 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 pb-20 lg:pb-0">{children}</main>
+        <main id="main" tabIndex={-1} className="flex-1 pb-20 outline-none lg:pb-0">
+          {children}
+        </main>
 
         {/* phone bottom bar */}
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--glass-line)] glass lg:hidden">
+        <nav
+          aria-label={t.dash.navLabel}
+          className="chrome edge-bottom fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)] lg:hidden"
+        >
           <div className="flex items-stretch">
             {navItems
               .filter((item) => item.primary)
               .map((item) => {
-                const active = item.path === "/app" ? current === "/app" : current.startsWith(item.path);
+                const active = isActive(item, current);
                 return (
-                  <button
+                  <Link
                     key={item.path}
-                    type="button"
-                    onClick={() => router.push(href(item.path))}
+                    href={href(item.path)}
+                    aria-current={active ? "page" : undefined}
                     className={clsx(
-                      "flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] transition-colors",
-                      active ? "text-[var(--brand)]" : "text-ink-muted",
+                      "press flex min-h-14 flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px]",
+                      active ? "font-medium text-[var(--brand)]" : "text-ink-muted",
                     )}
                   >
                     <item.icon className="size-[19px]" />
                     <span className="max-w-full truncate px-1">{item.label(t)}</span>
-                  </button>
+                  </Link>
                 );
               })}
           </div>
         </nav>
       </div>
 
-      <CommandPalette open={palette} onClose={() => setPalette(false)} />
+      <CommandPalette open={palette} onClose={() => setPalette(false)} triggerRef={paletteTrigger} />
     </div>
   );
 }

@@ -15,9 +15,10 @@ import {
 import { useMemo, useState } from "react";
 
 import { PageBody, PageHeader } from "@/components/dashboard/page-header";
+import { Async, Notice, useActionError, useCanWrite, ViewOnlyBadge, type Message } from "@/components/dashboard/views/shared";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty";
-import { Button } from "@/components/ui/button";
 import { Chip, SeverityPill } from "@/components/ui/pill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
@@ -41,10 +42,14 @@ const SEVERITIES: (Severity | "all")[] = ["all", "critical", "serious", "warning
 
 export function AlertsView() {
   const { t, locale } = useLocale();
-  const { data, loading, reload } = useApi(() => api.alerts({ limit: 60 }), []);
+  const alerts = useApi(() => api.alerts({ limit: 60 }), []);
+  const { data, reload } = alerts;
+  const canWrite = useCanWrite();
+  const actionError = useActionError();
   const [severity, setSeverity] = useState<Severity | "all">("all");
   const [tab, setTab] = useState<"open" | "done">("open");
   const [busy, setBusy] = useState<number | null>(null);
+  const [notice, setNotice] = useState<Message | null>(null);
 
   const rows = useMemo(
     () =>
@@ -61,17 +66,26 @@ export function AlertsView() {
 
   const acknowledge = async (alert: Alert) => {
     setBusy(alert.id);
+    setNotice(null);
     try {
       await api.acknowledgeAlert(alert.id);
       reload();
+    } catch (cause) {
+      setNotice({ tone: "error", text: actionError(cause) });
     } finally {
       setBusy(null);
     }
   };
 
+  const emptyTitle = severity !== "all" ? t.common.none : tab === "open" ? t.alerts.empty : t.alerts.emptyDone;
+
   return (
     <PageBody>
-      <PageHeader title={t.alerts.title} lead={t.alerts.lead} />
+      <PageHeader
+        title={t.alerts.title}
+        lead={t.alerts.lead}
+        actions={canWrite ? undefined : <ViewOnlyBadge />}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1.5">
@@ -92,78 +106,89 @@ export function AlertsView() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="space-y-2">
-          {[0, 1, 2, 3].map((index) => (
-            <Skeleton key={index} className="h-24" />
-          ))}
-        </div>
-      ) : rows.length === 0 ? (
-        <Card>
-          <EmptyState icon={<BellRing className="size-5" />} title={t.alerts.empty} />
-        </Card>
-      ) : (
-        <ul className="space-y-2.5">
-          {rows.map((alert) => {
-            const Icon = KIND_ICON[alert.kind] ?? TriangleAlert;
-            return (
-              <li key={alert.id}>
-                <Card className={clsx("flex gap-4", alert.acknowledged && "opacity-70")}>
-                  <span
-                    className="flex size-11 shrink-0 items-center justify-center rounded-2xl"
-                    style={{
-                      background: `var(--${alert.severity === "good" ? "good" : alert.severity}-soft)`,
-                      color: `var(--${alert.severity === "good" ? "good" : alert.severity})`,
-                    }}
-                  >
-                    <Icon className="size-5" />
-                  </span>
+      <Notice message={notice} />
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-[14.5px] font-semibold text-ink">
-                        {pick(alert, "title", locale)}
-                      </h3>
-                      <SeverityPill
-                        severity={alert.severity}
-                        label={t.alerts.severityLabel[alert.severity]}
-                      />
-                      <span className="rounded-full bg-[var(--surface-sunken)] px-2 py-0.5 text-[11px] text-ink-muted">
-                        {t.alerts.kindLabel[alert.kind]}
-                      </span>
+      <Async
+        state={alerts}
+        skeleton={
+          <div className="space-y-2">
+            {[0, 1, 2, 3].map((index) => (
+              <Skeleton key={index} className="h-24" />
+            ))}
+          </div>
+        }
+      >
+        {rows.length === 0 ? (
+          <Card>
+            <EmptyState icon={<BellRing className="size-5" />} title={emptyTitle} />
+          </Card>
+        ) : (
+          <ul className="space-y-2.5">
+            {rows.map((alert) => {
+              const Icon = KIND_ICON[alert.kind] ?? TriangleAlert;
+              return (
+                <li key={alert.id}>
+                  <Card className={clsx("flex gap-4", alert.acknowledged && "opacity-70")}>
+                    <span
+                      aria-hidden="true"
+                      className="flex size-11 shrink-0 items-center justify-center rounded-2xl"
+                      style={{
+                        background: `var(--${alert.severity}-soft)`,
+                        color: `var(--${alert.severity})`,
+                      }}
+                    >
+                      <Icon className="size-5" />
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-[14.5px] font-semibold text-ink">
+                          {pick(alert, "title", locale)}
+                        </h3>
+                        <SeverityPill
+                          severity={alert.severity}
+                          label={t.alerts.severityLabel[alert.severity]}
+                        />
+                        <span className="rounded-full bg-[var(--surface-sunken)] px-2 py-0.5 text-[11px] text-ink-muted">
+                          {t.alerts.kindLabel[alert.kind]}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-[13px] leading-relaxed text-ink-secondary">
+                        {pick(alert, "message", locale)}
+                      </p>
+                      <p className="mt-2 text-[11.5px] text-ink-muted">
+                        {formatRelative(alert.occurred_at, locale)} · {formatDateTime(alert.occurred_at, locale)}
+                      </p>
                     </div>
-                    <p className="mt-1.5 text-[13px] leading-relaxed text-ink-secondary">
-                      {pick(alert, "message", locale)}
-                    </p>
-                    <p className="mt-2 text-[11.5px] text-ink-muted">
-                      {formatRelative(alert.occurred_at, locale)} · {formatDateTime(alert.occurred_at, locale)}
-                    </p>
-                  </div>
 
-                  <div className="flex shrink-0 items-start">
-                    {alert.acknowledged ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--good-soft)] px-2.5 py-1.5 text-[12px] text-[var(--good-text)]">
-                        <Check className="size-3.5" />
-                        {t.alerts.acknowledged}
-                      </span>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => acknowledge(alert)}
-                        disabled={busy === alert.id}
-                      >
-                        <Check className="size-3.5" />
-                        <span className="hidden sm:inline">{t.alerts.acknowledge}</span>
-                      </Button>
-                    )}
-                  </div>
-                </Card>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                    <div className="flex shrink-0 items-start">
+                      {alert.acknowledged ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--good-soft)] px-2.5 py-1.5 text-[12px] text-[var(--good-text)]">
+                          <Check className="size-3.5" />
+                          {t.alerts.acknowledged}
+                        </span>
+                      ) : (
+                        canWrite && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => acknowledge(alert)}
+                            disabled={busy === alert.id}
+                            aria-label={t.alerts.acknowledge}
+                          >
+                            <Check className="size-3.5" />
+                            <span className="hidden sm:inline">{t.alerts.acknowledge}</span>
+                          </Button>
+                        )
+                      )}
+                    </div>
+                  </Card>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Async>
     </PageBody>
   );
 }

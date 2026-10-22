@@ -10,11 +10,12 @@ locale, light and dark themes, and a responsive layout from 390 px up.
 
 ```
 16_Zubie/
-├── backend/            FastAPI + SQLAlchemy (async), JWT auth, telemetry simulator
+├── backend/            FastAPI + SQLAlchemy (async), JWT auth, telemetry simulator, tests, pentest probe
 ├── frontend/           Next.js 15 App Router, Tailwind v4, Leaflet, hand-built SVG charts
-├── docs/               design notes and the PWA / APK / IPA packaging plan
-├── docker-compose.yml  postgres + api + web
-└── .env.example        copy to .env before `docker compose up`
+├── docs/               implementation report, security audit, pentest results, role reviews, plans
+├── .github/            CI: tests, SAST, dependency audit, secret scan, container scan
+├── docker-compose.yml  postgres + api + web (hardened, loopback-only ports)
+└── .env.example        copy to .env and fill the REQUIRED values before `docker compose up`
 ```
 
 ---
@@ -24,12 +25,22 @@ locale, light and dark themes, and a responsive layout from 390 px up.
 ### Docker (everything at once)
 
 ```bash
-cp .env.example .env        # then edit ZUBIE_SECRET_KEY
+cp .env.example .env        # fill POSTGRES_PASSWORD, ZUBIE_SECRET_KEY, ZUBIE_CORS_ORIGINS
 docker compose up --build
 ```
 
+The compose stack runs the API in **production mode**: it refuses to start with a
+placeholder secret, a wildcard CORS origin or a missing password, the interactive
+docs are switched off, and the demo accounts are not created. Ports bind to
+`127.0.0.1`; put a TLS reverse proxy in front for anything public.
+
 - Web: <http://localhost:3010>
-- API + interactive docs: <http://localhost:8010/docs>
+- API: <http://localhost:8010> (interactive docs only exist in development, at `/docs`)
+
+Production checklist: random 32+ character `ZUBIE_SECRET_KEY`, exact
+`ZUBIE_CORS_ORIGINS`, TLS at the proxy, `FORWARDED_ALLOW_IPS` set to the proxy,
+a single API worker (the rate limiter and token revocation list are in-process;
+move them to Redis before scaling out).
 
 ### Local development
 
@@ -53,21 +64,29 @@ npm run dev
 The database is created and seeded on first boot — SQLite locally, Postgres
 under Docker. Delete `backend/zubie.db` to reseed.
 
-### Demo account
+### Demo account (development only)
 
 | email | password |
 |---|---|
 | `demo@zubie.ir` | `zubie1234` |
 
 A second account, `manager@zubie.ir` with the same password, has the `manager`
-role. The login screen fills the demo credentials in for you.
+role. In development the login screen fills the demo credentials in for you. A
+production build starts with empty fields, and the server only creates these
+accounts when `ZUBIE_SEED_DEMO=true`.
+
+**Sign-ups get their own organisation.** Registering creates a new, empty
+organisation with you as its `admin`; it never joins the demo fleet. Roles are
+`viewer` (read-only), `manager` and `admin`; acknowledging alerts, editing
+geofences and completing maintenance need `manager` or higher.
 
 ---
 
 ## What is in it
 
-**Marketing site** (`/fa`, `/en`) — hero with a *live* fleet map driven by the
-same telemetry socket the dashboard uses, feature and how-it-works sections,
+**Marketing site** (`/fa`, `/en`) — hero with a moving demo fleet (simulated in
+the browser; the real telemetry socket needs a signed-in account), feature and
+how-it-works sections,
 pricing served from the API, FAQ, and a pilot-request form that writes a lead
 to the database.
 
@@ -96,8 +115,11 @@ to the database.
 There is no real hardware here, so `backend/app/services/telemetry.py` stands in
 for the Zubie key: a background task advances every vehicle on a 2-second tick
 (heading, speed, fuel burn, odometer, coolant, occasional status changes),
-broadcasts the frame to every websocket subscriber on `/api/ws/telemetry`, and
-flushes to the database every 15 ticks so a page reload shows a coherent fleet.
+sends each organisation **only its own vehicles** over `/api/ws/telemetry`, and
+flushes changed rows to the database every 15 ticks so a page reload shows a
+coherent fleet. The socket needs a token: browsers connect with
+`new WebSocket(url, ["zubie.v1", "bearer." + token])`, and the server checks the
+token and the `Origin` header before accepting.
 
 The REST endpoints overlay that in-memory state on the persisted rows, so the
 table and the map never disagree. Swapping in a real MQTT consumer means
@@ -110,10 +132,10 @@ are stable across restarts.
 
 ## API
 
-Interactive docs at `/docs`, OpenAPI at `/openapi.json`.
+Interactive docs at `/docs` and OpenAPI at `/openapi.json` (development only).
 
 ```
-POST   /api/auth/login | /api/auth/register     GET /api/auth/me
+POST   /api/auth/login | /api/auth/register | /api/auth/logout     GET /api/auth/me
 GET    /api/vehicles[?status=&search=]          GET /api/vehicles/{id}
 GET    /api/vehicles/{id}/trips | /diagnostics
 GET    /api/drivers | /api/drivers/{id}         GET /api/trips
@@ -145,6 +167,20 @@ chart palette, and the bidirectional-layout rules. Short version:
 - Persian copy follows the Persian UX-writing reference — پیش‌خوان for the
   dashboard, حساب کاربری for the account, اعلان for notifications, and
   «رمز نادرست است» rather than blaming the user.
+
+## Security, tests and CI
+
+- [`docs/SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.md): red-team and blue-team findings, what was fixed, residual risk.
+- [`docs/PENTEST_RESULTS.md`](docs/PENTEST_RESULTS.md): output of the live probe, `backend/scripts/pentest_probe.py`.
+- [`docs/ROLE_REVIEWS.md`](docs/ROLE_REVIEWS.md): product owner, tech lead, red team, blue team and QA review.
+
+```bash
+cd backend && .venv/bin/pip install pytest httpx && .venv/bin/python -m pytest -q   # 18 regression tests
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the tests, Bandit, Semgrep,
+`pip-audit`, `npm audit`, Gitleaks and a Trivy scan of both images on every pull
+request, plus weekly so new advisories surface on their own.
 
 ## Packaging
 

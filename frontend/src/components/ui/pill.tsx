@@ -96,8 +96,9 @@ export function Chip({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={onClick ? active : undefined}
       className={clsx(
-        "rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-150",
+        "press touch-target rounded-full px-3.5 py-1.5 text-[13px] font-medium",
         active
           ? "bg-[var(--brand)] text-[var(--brand-ink)]"
           : "bg-[var(--surface-sunken)] text-ink-secondary hover:text-ink",
