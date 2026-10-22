@@ -3,7 +3,7 @@
 import { ArrowDownRight, ArrowUpRight, Minus, type LucideIcon } from "lucide-react";
 
 import { Sparkline } from "@/components/charts/sparkline";
-import { clsx, formatDecimal } from "@/lib/format";
+import { clsx, formatPercent } from "@/lib/format";
 import { useLocale } from "@/lib/locale-context";
 import type { StatDelta } from "@/lib/types";
 
@@ -34,6 +34,8 @@ export function StatTile({
   const { locale, t } = useLocale();
   const DeltaIcon =
     delta?.direction === "up" ? ArrowUpRight : delta?.direction === "down" ? ArrowDownRight : Minus;
+  const deltaWord =
+    delta?.direction === "up" ? t.dash.deltaUp : delta?.direction === "down" ? t.dash.deltaDown : t.dash.deltaFlat;
 
   return (
     <div className="card group relative overflow-hidden p-5">
@@ -55,7 +57,7 @@ export function StatTile({
 
       <div className="mt-3 flex items-end justify-between gap-3">
         <p className="flex items-baseline gap-1.5">
-          <span className="text-[27px] font-semibold leading-none tracking-tight text-ink">{value}</span>
+          <span className="text-[27px] font-semibold leading-none tracking-title text-ink">{value}</span>
           {unit && <span className="text-[12.5px] text-ink-muted">{unit}</span>}
         </p>
         {trend && trend.length > 1 && <Sparkline values={trend} color={trendColor} />}
@@ -74,7 +76,8 @@ export function StatTile({
             )}
           >
             <DeltaIcon className="size-3 rtl:-scale-x-100" />
-            {formatDecimal(Math.abs(delta.delta_pct), locale, 1)}٪
+            <span className="sr-only">{deltaWord}</span>
+            {formatPercent(Math.abs(delta.delta_pct), locale, 1)}
           </span>
           <span className="text-ink-muted">{t.common.vsYesterday}</span>
         </p>

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Vazirmatn } from "next/font/google";
+import localFont from "next/font/local";
 import { notFound } from "next/navigation";
 
 import { Providers } from "@/components/providers";
@@ -9,14 +9,18 @@ import { themeBootstrapScript } from "@/lib/theme";
 
 import "../globals.css";
 
-const latin = Inter({
-  subsets: ["latin"],
+// Self-hosted variable fonts (OFL, from @fontsource-variable): no build-time call to Google,
+// no third-party request from the browser, and builds work offline or inside Iran.
+const latin = localFont({
+  src: "../../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
+  weight: "100 900",
   variable: "--font-latin",
   display: "swap",
 });
 
-const persian = Vazirmatn({
-  subsets: ["arabic"],
+const persian = localFont({
+  src: "../../../node_modules/@fontsource-variable/vazirmatn/files/vazirmatn-arabic-wght-normal.woff2",
+  weight: "100 900",
   variable: "--font-persian",
   display: "swap",
 });

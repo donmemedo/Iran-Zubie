@@ -56,12 +56,13 @@ def rate_limit(name: str, limit: int, window_seconds: float):
 
 if __name__ == "__main__":  # self-check: cd backend && .venv/bin/python -m app.core.ratelimit
     rl = RateLimiter(limit=2, window_seconds=60, max_keys=3)
-    rl.check("a"), rl.check("a")
+    rl.check("a")
+    rl.check("a")
     try:
         rl.check("a")
         raise AssertionError("third hit inside the window must be refused")
     except HTTPException as e:
-        assert e.status_code == 429 and int(e.headers["Retry-After"]) > 0
+        assert e.headers is not None and e.status_code == 429 and int(e.headers["Retry-After"]) > 0
     for k in range(1000):
         rl.check(f"flood{k}")
     assert len(rl._hits) == 3 and "a" not in rl._hits

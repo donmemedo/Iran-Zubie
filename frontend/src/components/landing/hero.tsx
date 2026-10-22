@@ -2,25 +2,88 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Gauge, Play, Radio, ShieldCheck } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Aurora } from "@/components/landing/aurora";
 import { MapPanel } from "@/components/map/map-panel";
 import { ButtonLink } from "@/components/ui/button";
 import { formatDecimal, formatNumber } from "@/lib/format";
-import { useTelemetry } from "@/lib/hooks";
 import { useLocale } from "@/lib/locale-context";
-import type { Vehicle } from "@/lib/types";
+import type { TelemetryVehicle, Vehicle } from "@/lib/types";
+
+/** The hero map shows a small simulated fleet, so the landing page is alive without any account. */
+const DEMO_BOUNDS = { latMin: 35.58, latMax: 35.82, lngMin: 51.2, lngMax: 51.58 };
+
+/** Deterministic, so server and client render the same first frame (no hydration mismatch). */
+function seedDemoFleet(): Record<number, TelemetryVehicle> {
+  let seed = 7;
+  const next = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const fleet: Record<number, TelemetryVehicle> = {};
+  for (let id = 1; id <= 14; id += 1) {
+    const roll = next();
+    fleet[id] = {
+      id,
+      lat: DEMO_BOUNDS.latMin + next() * (DEMO_BOUNDS.latMax - DEMO_BOUNDS.latMin),
+      lng: DEMO_BOUNDS.lngMin + next() * (DEMO_BOUNDS.lngMax - DEMO_BOUNDS.lngMin),
+      heading: next() * 360,
+      speed_kmh: roll < 0.7 ? 28 + next() * 50 : 0,
+      status: roll < 0.7 ? "moving" : roll < 0.85 ? "idle" : "parked",
+      fuel_percent: 40 + next() * 55,
+      odometer_km: 20000 + next() * 90000,
+      engine_rpm: 0,
+      coolant_c: 88,
+      battery_volt: 12.6,
+      health_score: 80 + next() * 18,
+      last_seen: null,
+    };
+  }
+  return fleet;
+}
 
 /**
- * The hero map is driven by the same public telemetry socket the dashboard
- * uses, so the landing page shows a fleet that is genuinely moving rather
- * than a screenshot.
+ * The landing page is public, so it must never open the private telemetry socket.
+ * It animates a few illustrative vehicles locally instead.
  */
+function useDemoFleet(paused: boolean | null) {
+  const [fleet, setFleet] = useState(seedDemoFleet);
+  useEffect(() => {
+    if (paused) return;
+    const timer = setInterval(() => {
+      if (document.hidden) return;
+      setFleet((current) => {
+        const nextFleet: Record<number, TelemetryVehicle> = {};
+        for (const item of Object.values(current)) {
+          if (item.status !== "moving") {
+            nextFleet[item.id] = item;
+            continue;
+          }
+          const heading = (item.heading + (Math.random() - 0.5) * 28 + 360) % 360;
+          const speed = Math.max(12, Math.min(110, item.speed_kmh + (Math.random() - 0.5) * 12));
+          const km = speed * (2 / 3600) * 26;
+          const rad = (heading * Math.PI) / 180;
+          let lat = item.lat + (km / 111) * Math.cos(rad);
+          let lng = item.lng + (km / (111 * Math.cos((lat * Math.PI) / 180))) * Math.sin(rad);
+          let turned = heading;
+          if (lat < DEMO_BOUNDS.latMin || lat > DEMO_BOUNDS.latMax || lng < DEMO_BOUNDS.lngMin || lng > DEMO_BOUNDS.lngMax) {
+            lat = Math.min(Math.max(lat, DEMO_BOUNDS.latMin), DEMO_BOUNDS.latMax);
+            lng = Math.min(Math.max(lng, DEMO_BOUNDS.lngMin), DEMO_BOUNDS.lngMax);
+            turned = (heading + 180) % 360;
+          }
+          nextFleet[item.id] = { ...item, lat, lng, heading: turned, speed_kmh: speed };
+        }
+        return nextFleet;
+      });
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [paused]);
+  return fleet;
+}
+
 export function Hero() {
   const { t, locale, href } = useLocale();
   const reduceMotion = useReducedMotion();
-  const { vehicles: live, connected } = useTelemetry(true);
+  const live = useDemoFleet(reduceMotion);
+  const connected = true;
 
   const vehicles = useMemo<Vehicle[]>(
     () =>

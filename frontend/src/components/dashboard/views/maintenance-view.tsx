@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { PageBody, PageHeader } from "@/components/dashboard/page-header";
 import { StatTile } from "@/components/dashboard/stat-tile";
+import { Notice, useActionError, useCanWrite, ViewOnlyBadge, type Message } from "@/components/dashboard/views/shared";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty";
@@ -33,6 +34,9 @@ export function MaintenanceView() {
   const { data: vehicles } = useApi(() => api.vehicles(), []);
   const [filter, setFilter] = useState<MaintenanceTask["status"] | "all">("all");
   const [busy, setBusy] = useState<number | null>(null);
+  const canWrite = useCanWrite();
+  const actionError = useActionError();
+  const [notice, setNotice] = useState<Message | null>(null);
 
   const vehicleName = useMemo(() => {
     const map = new Map<number, string>();
@@ -44,9 +48,12 @@ export function MaintenanceView() {
 
   const complete = async (task: MaintenanceTask) => {
     setBusy(task.id);
+    setNotice(null);
     try {
       await api.completeMaintenance(task.id);
       reload();
+    } catch (cause) {
+      setNotice({ tone: "error", text: actionError(cause) });
     } finally {
       setBusy(null);
     }
@@ -111,18 +118,20 @@ export function MaintenanceView() {
       numeric: true,
       cell: (task) =>
         task.status === "done" ? (
-          <CircleCheck className="ms-auto size-4 text-[var(--good)]" />
-        ) : (
+          <CircleCheck className="ms-auto size-4 text-[var(--good)]" aria-label={t.maintenance.statusLabel.done} role="img" />
+        ) : canWrite ? (
           <Button size="sm" variant="ghost" onClick={() => complete(task)} disabled={busy === task.id}>
             {t.maintenance.markDone}
           </Button>
-        ),
+        ) : null,
     },
   ];
 
   return (
     <PageBody>
-      <PageHeader title={t.maintenance.title} lead={t.maintenance.lead} />
+      <PageHeader title={t.maintenance.title} lead={t.maintenance.lead} actions={canWrite ? undefined : <ViewOnlyBadge />} />
+
+      <Notice message={notice} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {forecast ? (

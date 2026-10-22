@@ -1,5 +1,5 @@
 from collections import Counter, defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import case, func, select
@@ -10,8 +10,8 @@ from app.db.session import get_session
 from app.models import Alert, Driver, MaintenanceTask, Trip, User, Vehicle
 from app.schemas import FleetOverview, SeriesPoint, StatDelta, TimeSeries
 from app.services.jalali import format_jalali
-from app.services.timeutil import as_utc
 from app.services.telemetry import simulator
+from app.services.timeutil import as_utc
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -26,10 +26,7 @@ SEVERITY_RANK = {name: rank for rank, name in enumerate(SEVERITIES)}
 
 
 def _delta(current: float, previous: float, higher_is_better: bool = True) -> StatDelta:
-    if previous <= 0:
-        pct = 0.0
-    else:
-        pct = round((current - previous) / previous * 100, 1)
+    pct = 0.0 if previous <= 0 else round((current - previous) / previous * 100, 1)
     direction = "up" if pct > 0.15 else ("down" if pct < -0.15 else "flat")
     good = (pct >= 0) if higher_is_better else (pct <= 0)
     return StatDelta(value=round(current, 1), delta_pct=pct, direction=direction, good=good)
@@ -70,7 +67,7 @@ async def overview(
         )
     ).one()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today_start = now - timedelta(days=1)
     is_today = Trip.started_at >= today_start
     trips = (
@@ -122,7 +119,7 @@ async def timeseries(
     session: AsyncSession = Depends(get_session),
 ) -> TimeSeries:
     days = max(7, min(days, 30))
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since = datetime.now(UTC) - timedelta(days=days)
     # Only the summed columns: full rows would also parse every trip's path JSON.
     # ponytail: per-day grouping stays in Python because date bucketing SQL differs
     # between SQLite and Postgres; move it to SQL if a fleet has 100k+ trips a month.
@@ -148,7 +145,7 @@ async def timeseries(
         bucket["score"] += trip.score
         score_counts[key] += 1
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     points: list[SeriesPoint] = []
     for offset in range(days - 1, -1, -1):
         day = today - timedelta(days=offset)
@@ -208,7 +205,7 @@ async def score_distribution(
     ).one()
     return [
         {"band": band, "band_fa": band_fa, "count": n, "low": low, "high": min(high, 100)}
-        for (band, band_fa, low, high), n in zip(bands, counts)
+        for (band, band_fa, low, high), n in zip(bands, counts, strict=True)
     ]
 
 

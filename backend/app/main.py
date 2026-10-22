@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from starlette.middleware.gzip import GZipMiddleware
 
 from app.api.router import api_router
@@ -14,10 +15,10 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.seed import seed_database
 from app.db.session import SessionLocal, engine
-from app.services.telemetry import simulator
 
 # Imported for their side effect of registering tables on Base.metadata.
 from app.models import entities  # noqa: F401
+from app.services.telemetry import simulator
 
 # No-op when the operator already configured logging; otherwise makes zubie.* loggers print.
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -117,8 +118,9 @@ class SelectiveGZip(GZipMiddleware):
 async def lifespan(app: FastAPI):
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
-    async with SessionLocal() as session:
-        await seed_database(session)
+    if settings.should_seed:
+        async with SessionLocal() as session:
+            await seed_database(session)
     await simulator.start()
     try:
         yield
@@ -154,4 +156,17 @@ app.include_router(api_router, prefix=settings.api_prefix)
 
 @app.get("/health", tags=["meta"])
 async def health() -> dict:
+    """Liveness: the process is up. Says nothing about tenants or infrastructure."""
     return {"status": "ok"}
+
+
+@app.get("/health/ready", tags=["meta"])
+async def ready() -> JSONResponse:
+    """Readiness: the database answers. Orchestrators route traffic only when this is 200."""
+    try:
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+    except Exception:  # noqa: BLE001 - any failure means "not ready"; details stay in the log
+        error_log.exception("readiness check failed")
+        return JSONResponse({"status": "unavailable"}, status_code=503)
+    return JSONResponse({"status": "ready"})

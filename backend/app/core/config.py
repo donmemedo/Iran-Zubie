@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEV_SECRET = "zubie-iran-dev-secret-key-not-for-production"
+DEV_SECRET = "zubie-iran-dev-secret-key-not-for-production"  # noqa: S105 - development default; production refuses it
 # Placeholder values that ship in .env.example / docker-compose; never acceptable in production.
 WEAK_SECRETS = {
     DEV_SECRET,
@@ -24,8 +24,8 @@ class Settings(BaseSettings):
     environment: Literal["development", "production"] = "development"
     secret_key: str = DEV_SECRET
     algorithm: str = "HS256"
-    token_issuer: str = "zubie-iran"
-    token_audience: str = "zubie-dashboard"
+    token_issuer: str = "zubie-iran"  # noqa: S105 - a JWT claim value, not a secret
+    token_audience: str = "zubie-dashboard"  # noqa: S105 - a JWT claim value, not a secret
     # One working day. There is no refresh token; the dashboard re-authenticates when it expires.
     access_token_expire_minutes: int = 60 * 8
     database_url: str = "sqlite+aiosqlite:///./zubie.db"
@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     max_ws_connections: int = 500  # global cap; each user is also limited to 10 sockets
     max_body_bytes: int = 256 * 1024  # larger requests get 413 before the body is read
     docs_enabled: bool | None = None  # None -> on in development, off in production
+    # The seed plants demo@zubie.ir with a password printed in the README, so production
+    # must not create it unless an operator deliberately turns it on (e.g. a public demo).
+    seed_demo: bool | None = None  # None -> on in development, off in production
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -47,6 +50,10 @@ class Settings(BaseSettings):
     @property
     def show_docs(self) -> bool:
         return (not self.is_production) if self.docs_enabled is None else self.docs_enabled
+
+    @property
+    def should_seed(self) -> bool:
+        return (not self.is_production) if self.seed_demo is None else self.seed_demo
 
     @model_validator(mode="after")
     def _refuse_insecure_production(self) -> "Settings":

@@ -98,8 +98,10 @@ async def register(
     )
     session.add(user)
     await session.commit()
-    user = await _load(session, user.email)
-    assert user is not None
+    loaded = await _load(session, user.email)  # reloaded with its organization attached
+    if loaded is None:  # the row was committed a line ago; never expected
+        raise RuntimeError("registered user missing after commit")
+    user = loaded
     log.info("auth.register user_id=%s org_id=%s ip=%s", user.id, org.id, client_ip(request))
     return TokenOut(access_token=create_access_token(user.email), user=UserOut.model_validate(user))
 

@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, StringConstraints
@@ -7,7 +7,7 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Ema
 def _as_utc(value: datetime | str) -> datetime | str:
     """SQLite returns naive datetimes; everything stored is UTC."""
     if isinstance(value, datetime) and value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
+        return value.replace(tzinfo=UTC)
     return value
 
 
@@ -16,6 +16,12 @@ UtcDatetime = Annotated[datetime, BeforeValidator(_as_utc)]
 
 class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+
+class StrictInput(BaseModel):
+    """Inbound payloads reject unknown fields, so a client cannot smuggle `role` or `organization_id`."""
+
+    model_config = ConfigDict(extra="forbid")
 
 
 # Lengths match the DB columns so oversized input is a 422, never a 500 on Postgres.
@@ -64,12 +70,12 @@ Phone = Annotated[
 # ---------------------------------------------------------------- auth
 
 
-class LoginRequest(BaseModel):
+class LoginRequest(StrictInput):
     email: Email
     password: str = Field(max_length=128)
 
 
-class RegisterRequest(BaseModel):
+class RegisterRequest(StrictInput):
     email: Email
     password: Annotated[str, Field(min_length=10, max_length=72), AfterValidator(_strong_password)]
     full_name: Name
@@ -99,7 +105,7 @@ class UserOut(ORMModel):
 
 class TokenOut(BaseModel):
     access_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105 - OAuth2 token type, not a secret
     user: UserOut
 
 
@@ -204,7 +210,7 @@ class GeofenceOut(ORMModel):
     active: bool
 
 
-class GeofenceCreate(BaseModel):
+class GeofenceCreate(StrictInput):
     name: Name
     name_fa: str = Field(default="", max_length=120)
     kind: GeofenceKind = "customer"
@@ -279,7 +285,7 @@ class TimeSeries(BaseModel):
     points: list[SeriesPoint]
 
 
-class LeadCreate(BaseModel):
+class LeadCreate(StrictInput):
     company: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=140)]
     contact_name: Name
     phone: Phone

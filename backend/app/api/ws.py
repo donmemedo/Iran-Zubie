@@ -2,7 +2,7 @@ import asyncio
 import contextlib
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 
@@ -37,7 +37,7 @@ async def telemetry_socket(websocket: WebSocket) -> None:
         # Short-lived session: never hold a pooled DB connection for the socket's lifetime.
         async with SessionLocal() as session:
             user = await user_from_token(token, session)
-    if user is None:
+    if user is None or claims is None:
         log.warning("ws refused reason=auth origin=%r ip=%s", origin, websocket.client.host if websocket.client else "-")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
@@ -53,7 +53,7 @@ async def telemetry_socket(websocket: WebSocket) -> None:
             encode(
                 {
                     "type": "snapshot",
-                    "at": datetime.now(timezone.utc).isoformat(),
+                    "at": datetime.now(UTC).isoformat(),
                     "vehicles": simulator.snapshot(user.organization_id),
                 }
             )
@@ -65,7 +65,7 @@ async def telemetry_socket(websocket: WebSocket) -> None:
             )
             if message["type"] == "websocket.disconnect":
                 return
-    except asyncio.TimeoutError:
+    except TimeoutError:
         expired = time.time() >= expires_at
         with contextlib.suppress(Exception):  # the broadcaster may already have closed it
             await websocket.close(

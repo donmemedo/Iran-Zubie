@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { api, getToken, setToken } from "@/lib/api";
+import { UNAUTHORIZED_EVENT, api, getToken, setToken } from "@/lib/api";
 import { useLocale } from "@/lib/locale-context";
 import type { User } from "@/lib/types";
 
@@ -76,12 +76,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const logout = useCallback(() => {
+  // Local end of session: forget the token, drop any cached pages, go to the login screen.
+  const endSession = useCallback(() => {
     setToken(null);
     setUser(null);
     setStatus("anonymous");
+    navigator.serviceWorker?.controller?.postMessage({ type: "logout" });
     router.push(href("/login"));
   }, [href, router]);
+
+  const logout = useCallback(() => {
+    // Revoke the token server-side too. The request reads the token synchronously
+    // before endSession clears it, and a failure must not block signing out.
+    void api.logout().catch(() => undefined);
+    endSession();
+  }, [endSession]);
+
+  useEffect(() => {
+    window.addEventListener(UNAUTHORIZED_EVENT, endSession);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, endSession);
+  }, [endSession]);
 
   const value = useMemo(
     () => ({ user, status, login, register, logout }),

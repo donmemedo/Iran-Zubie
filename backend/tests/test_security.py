@@ -7,7 +7,6 @@ from starlette.websockets import WebSocketDisconnect
 from app.core.config import DEV_SECRET, Settings
 from tests.conftest import ORIGIN, PASSWORD, bearer, login
 
-
 # --------------------------------------------------------------- tenancy
 
 
@@ -62,14 +61,12 @@ def _connect(client, token=None, headers=ORIGIN):
 
 def test_ws_rejects_missing_or_bad_token_and_foreign_origin(client, demo):
     for token, headers in [(None, ORIGIN), ("not-a-jwt", ORIGIN)]:
-        with pytest.raises(WebSocketDisconnect) as excinfo:
-            with _connect(client, token, headers):
-                pass
+        with pytest.raises(WebSocketDisconnect) as excinfo, _connect(client, token, headers):
+            pass
         assert excinfo.value.code == 1008
     good = demo["Authorization"].removeprefix("Bearer ")
-    with pytest.raises(WebSocketDisconnect):
-        with _connect(client, good, {"origin": "https://evil.example"}):
-            pass
+    with pytest.raises(WebSocketDisconnect), _connect(client, good, {"origin": "https://evil.example"}):
+        pass
 
 
 @pytest.fixture(scope="session")
@@ -163,3 +160,22 @@ def test_oversized_body_is_413(client):
 
 def test_unknown_credentials_cost_the_same_path(client):
     assert login(client, "nobody@example.com", PASSWORD).status_code == 401
+
+
+def test_unknown_fields_are_rejected_not_ignored(client):
+    body = {"email": "x@example.com", "password": "Str0ng-and-long-1", "full_name": "X", "role": "admin", "organization_id": 1}
+    assert client.post("/api/auth/register", json=body).status_code in (422, 429)
+    assert client.post("/api/auth/login", json={"email": "demo@zubie.ir", "password": PASSWORD, "is_admin": True}).status_code == 422
+
+
+def test_production_does_not_plant_demo_accounts_unless_asked():
+    base = {"secret_key": "x" * 48, "cors_origins": "https://app.example"}
+    assert Settings(environment="production", **base).should_seed is False
+    assert Settings(environment="production", seed_demo=True, **base).should_seed is True
+    assert Settings(environment="development").should_seed is True
+
+
+def test_readiness_checks_the_database_and_leaks_nothing(client):
+    response = client.get("/health/ready")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}

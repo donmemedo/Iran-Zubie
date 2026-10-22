@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -171,7 +171,7 @@ async def list_trips(
     user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[Trip]:
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since = datetime.now(UTC) - timedelta(days=days)
     stmt = (
         select(Trip)
         .where(Trip.organization_id == user.organization_id, Trip.started_at >= since)

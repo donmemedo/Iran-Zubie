@@ -1,6 +1,6 @@
 import time
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 import jwt
@@ -38,7 +38,7 @@ def verify_password(plain: str, hashed: str | None) -> bool:
 
 
 def create_access_token(subject: str, expires_minutes: int | None = None) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "sub": subject,
         "iat": now,
@@ -89,6 +89,8 @@ if __name__ == "__main__":  # self-check: cd backend && .venv/bin/python -m app.
     assert not verify_password("x" * 73, None) and not verify_password("x" * 73, _DUMMY_HASH.decode())
     t = create_access_token("a@b.c")
     assert decode_access_token(t) == "a@b.c" and decode_access_token(t + "x") is None
-    revoke_token(token_claims(t))
+    claims = token_claims(t)
+    assert claims is not None
+    revoke_token(claims)
     assert token_claims(t) is None and decode_access_token(create_access_token("a@b.c")) == "a@b.c"
     print("security ok")

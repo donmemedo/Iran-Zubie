@@ -10,6 +10,8 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { clsx, formatDecimal, formatNumber, pick } from "@/lib/format";
+import { EmptyFleet } from "@/components/dashboard/views/shared";
+import { ErrorState } from "@/components/ui/empty";
 import { useApi } from "@/lib/hooks";
 import { useLocale } from "@/lib/locale-context";
 import type { Badge } from "@/lib/types";
@@ -23,7 +25,7 @@ const BADGE_COLOR: Record<Badge, string> = {
 
 export function DriversView() {
   const { t, locale } = useLocale();
-  const { data: drivers, loading } = useApi(() => api.drivers(), []);
+  const { data: drivers, loading, error, reload } = useApi(() => api.drivers(), []);
   const { data: bands } = useApi(() => api.scoreDistribution(), []);
 
   /* Ordinal bands read from the start of the line: right in RTL, left in LTR. */
@@ -94,7 +96,9 @@ export function DriversView() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {loading && [0, 1, 2, 3, 4, 5].map((index) => <Skeleton key={index} className="h-[196px]" />)}
+        {loading && !drivers && [0, 1, 2, 3, 4, 5].map((index) => <Skeleton key={index} className="h-[196px]" />)}
+        {!drivers && error && <div className="sm:col-span-2 xl:col-span-3"><ErrorState compact onRetry={reload} /></div>}
+        {drivers && drivers.length === 0 && <div className="sm:col-span-2 xl:col-span-3"><EmptyFleet /></div>}
         {(drivers ?? []).map((driver, index) => (
           <Card key={driver.id} className="transition-shadow hover:shadow-[var(--shadow-float)]">
             <div className="flex items-start gap-3">

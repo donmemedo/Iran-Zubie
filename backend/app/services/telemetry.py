@@ -15,7 +15,7 @@ import json
 import math
 import random
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select, update
 from starlette.websockets import WebSocket
@@ -178,7 +178,7 @@ class TelemetrySimulator:
         item["lat"] = round(item["lat"], 6)
         item["lng"] = round(item["lng"], 6)
         item["battery_volt"] = round(min(14.4, max(11.4, item["battery_volt"] + RNG.uniform(-0.05, 0.05))), 2)
-        item["last_seen"] = datetime.now(timezone.utc).isoformat()
+        item["last_seen"] = datetime.now(UTC).isoformat()
 
     async def _flush(self) -> None:
         """One executemany UPDATE for the rows that changed since the last flush."""
@@ -209,7 +209,7 @@ class TelemetrySimulator:
                     self._advance(item)
                 org_ids = manager.org_ids
                 if org_ids:
-                    at = datetime.now(timezone.utc).isoformat()
+                    at = datetime.now(UTC).isoformat()
                     frames = {
                         org_id: encode(
                             {"type": "telemetry", "tick": self._tick, "at": at, "vehicles": self.by_org[org_id]}

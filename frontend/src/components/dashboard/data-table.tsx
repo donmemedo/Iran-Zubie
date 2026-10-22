@@ -59,9 +59,22 @@ export function DataTable<Row extends { id: number | string }>({
             <tr
               key={row.id}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
+              onKeyDown={
+                onRowClick
+                  ? (event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onRowClick(row);
+                      }
+                    }
+                  : undefined
+              }
+              tabIndex={onRowClick ? 0 : undefined}
               className={clsx(
                 "border-b border-[var(--line)] transition-colors last:border-0",
-                onRowClick && "cursor-pointer hover:bg-[var(--surface-sunken)]",
+                onRowClick &&
+                  "cursor-pointer hover:bg-[var(--surface-sunken)] focus-visible:bg-[var(--surface-sunken)] focus-visible:outline-offset-[-2px]",
               )}
             >
               {columns.map((column) => (

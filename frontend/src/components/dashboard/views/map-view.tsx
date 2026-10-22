@@ -9,6 +9,7 @@ import { Chip, StatusPill } from "@/components/ui/pill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { clsx, formatDecimal, formatRelative, pick } from "@/lib/format";
+import { EmptyFleet } from "@/components/dashboard/views/shared";
 import { useApi, useTelemetry } from "@/lib/hooks";
 import { useLocale } from "@/lib/locale-context";
 import type { Vehicle, VehicleStatus } from "@/lib/types";
@@ -60,6 +61,10 @@ export function MapView() {
       <div className="absolute inset-0">
         {loading ? (
           <Skeleton className="size-full rounded-none" />
+        ) : vehicles && vehicles.length === 0 ? (
+          <div className="flex size-full items-center justify-center p-4">
+            <div className="w-full max-w-md"><EmptyFleet /></div>
+          </div>
         ) : (
           <MapPanel
             vehicles={visible}
