@@ -59,10 +59,9 @@ jobs:
       - run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
-      - name: npm audit (production dependencies, critical)
-        # Gate on critical only: the two remaining advisories sit in the PostCSS bundled inside Next.js
-        # (build-time, needs attacker-controlled CSS) and are tracked in docs/SECURITY_AUDIT.md.
-        run: npm audit --omit=dev --audit-level=critical
+      - name: npm audit (production dependencies, high)
+        # The PostCSS copy bundled by Next.js is pinned to a patched release through `overrides` in package.json.
+        run: npm audit --omit=dev --audit-level=high
 
   secrets:
     name: Secret scan (gitleaks)

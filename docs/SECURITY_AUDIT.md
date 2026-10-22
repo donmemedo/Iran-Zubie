@@ -100,8 +100,7 @@ with the old key validates any more.
 | Restart clears revocations | Same reason | A token revoked by logout validates again after a restart until it expires (at most 8 hours) |
 | Per-account login limit allows lock-out of a victim | 8 failures in 5 minutes block that account for everyone | Key by account and IP, add step-up verification |
 | CSP allows inline scripts | The theme bootstrap and Next.js inline data need it | Nonce-based CSP, which makes every page dynamic |
-| Two `npm audit` advisories in PostCSS bundled by Next.js | Exploitable only with attacker-controlled CSS at build time; the fix needs Next.js 16 | Upgrade with the next planned framework bump; CI gates on critical only |
-| `pip` and `certifi` flagged in the local venv | Tooling and a test-only dependency, not in `requirements.txt` | The Docker builder upgrades `pip`; Dependabot covers the rest |
+| `pip` and `certifi` flagged in the local venv | Tooling and a test-only dependency, not in `requirements.txt` | The runtime images ship neither `pip` nor `npm`; Dependabot covers the rest |
 | No MFA, password reset, email verification or team invitations | Out of scope for the MVP | See the product backlog in [`ROLE_REVIEWS.md`](ROLE_REVIEWS.md) |
 | Schema created at startup, no migrations | MVP shortcut | Alembic |
 | Telemetry is simulated; real devices will need their own authentication | No hardware ingest exists yet | Per-device keys or mTLS on the MQTT or HTTP ingest |

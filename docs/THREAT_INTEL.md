@@ -31,8 +31,8 @@ high and above for images), and keeps the machine-readable output as a build art
 ## Analysis: triage rules
 
 An advisory moves up when the vulnerable code is reachable, the component faces the internet, or it appears in
-the KEV list. It moves down when it needs attacker control of build inputs (the PostCSS case) or only affects
-tooling (`pip`, test-only packages). Every downgrade is written in the accepted-risk table in `SECURITY_AUDIT.md`.
+the KEV list. It moves down when it needs attacker control of build inputs or only affects tooling (`pip`, test-only
+packages). The PostCSS advisories in Next.js were fixed with an `overrides` entry rather than accepted. Every downgrade is written in the accepted-risk table in `SECURITY_AUDIT.md`.
 
 ## Dissemination and response time
 

@@ -56,7 +56,7 @@ The app was audited, attacked and fixed. The worst problems (an open WebSocket l
 | Backend tests | 39 pass, 83% coverage (floor in CI: 80%) |
 | Lint and types | `ruff` clean, `mypy` clean |
 | Bandit | 0 high, 0 medium, 9 low (accepted, explained in the audit) |
-| Dependency audit | Nothing in `requirements.txt`; `pip` and test-only `certifi` flagged in the local venv. Frontend: 2 advisories in PostCSS bundled by Next.js (build-time, needs Next 16) |
+| Dependency audit | Nothing in `requirements.txt`; `pip` and test-only `certifi` flagged in the local venv. Frontend: 0 vulnerabilities (the two PostCSS advisories bundled by Next.js are fixed by an `overrides` entry in `package.json`) |
 | Live pen test | 38 of 38 probes pass against a production-mode server |
 | Browser run | 17 of 17 checks pass in Chrome on the production build: no CSP violations, no uncaught exceptions, login, socket, 6 pages, 390 px, empty organization, bad token. Screenshots in `docs/screenshots/` |
 | Frontend build | `tsc` clean, `next build` succeeds for every route (first-load JS about 104 to 173 kB) |
