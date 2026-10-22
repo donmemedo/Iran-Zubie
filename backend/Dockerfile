@@ -7,7 +7,8 @@ WORKDIR /build
 COPY requirements.txt .
 RUN python -m venv /opt/venv \
  && /opt/venv/bin/pip install --upgrade pip \
- && /opt/venv/bin/pip install -r requirements.txt
+ && /opt/venv/bin/pip install -r requirements.txt \
+ && /opt/venv/bin/pip uninstall -y pip
 
 # ---------- runtime ----------
 FROM python:3.12-slim AS runtime
@@ -19,7 +20,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     # Proxy IPs allowed to set X-Forwarded-For. Without this every client shares one rate-limit bucket.
     FORWARDED_ALLOW_IPS=127.0.0.1
 
-RUN groupadd --system --gid 10001 zubie \
+# No package manager at runtime: pip and setuptools bundle their own urllib3/msgpack copies that scanners flag
+# and nothing here uses. A missing package is only a warning, so this survives base-image changes.
+RUN /usr/local/bin/python -m pip uninstall -y pip setuptools wheel \
+ && groupadd --system --gid 10001 zubie \
  && useradd --system --uid 10001 --gid zubie --no-create-home --shell /usr/sbin/nologin zubie
 
 WORKDIR /app
